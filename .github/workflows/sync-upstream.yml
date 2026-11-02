@@ -1,0 +1,35 @@
+name: Sync upstream
+
+on:
+  schedule:
+    # Daily at 09:17 Singapore time (01:17 UTC).
+    - cron: '17 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # The API uses this fork's configured parent as its upstream.
+    if: github.event.repository.fork
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      TARGET_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Sync the default branch with upstream
+        shell: bash
+        run: |
+          # Merge without force: conflicts fail the job and preserve fork commits.
+          # Updates made with GITHUB_TOKEN do not trigger other push workflows.
+          gh api --method POST "repos/${REPOSITORY}/merge-upstream" \
+            --header 'Accept: application/vnd.github+json' \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            --field "branch=${TARGET_BRANCH}"
